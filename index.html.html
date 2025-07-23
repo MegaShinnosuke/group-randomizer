@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>グループ分けツール</title>
+  <style>
+    body {
+      font-family: "メイリオ", sans-serif;
+      padding: 20px;
+      background-color: #f9f9f9;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    textarea {
+      width: 100%;
+      height: 150px;
+      padding: 10px;
+      font-size: 16px;
+      box-sizing: border-box;
+      resize: vertical;
+    }
+
+    button {
+      display: inline-block;
+      padding: 10px 20px;
+      margin: 10px 5px 20px 0;
+      font-size: 16px;
+      background-color: #4caf50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    #result {
+      white-space: pre-wrap;
+      background-color: #fff;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      margin-top: 20px;
+      font-family: "Courier New", monospace;
+    }
+
+    @media (max-width: 600px) {
+      textarea {
+        height: 120px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>グループ分けツール</h1>
+  <p>※名前は改行で1人ずつ入力してください（「ちゃん」は自動で付きます）</p>
+  <textarea id="names" placeholder="例：&#10;あ&#10;い&#10;う&#10;..."></textarea><br />
+  <button onclick="makeGroups()">グループ作成</button>
+  <button onclick="resetResult()">履歴リセット</button>
+  <button onclick="copyResult()">結果をコピー</button>
+
+  <div id="result"></div>
+
+  <script>
+    let historyLog = {};
+
+    function makeGroups() {
+      const input = document.getElementById("names").value;
+      let names = input
+        .split("\n")
+        .map((n) => n.trim())
+        .filter((n) => n.length > 0)
+        .map((n) => (n.endsWith("ちゃん") ? n.slice(0, -2) : n));
+
+      if (names.length === 0) return;
+
+      // Fisher-Yates shuffle
+      for (let i = names.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [names[i], names[j]] = [names[j], names[i]];
+      }
+
+      // Determine group sizes
+      const groupSizes = [];
+      let remaining = names.length;
+      while (remaining > 0) {
+        if (remaining === 13) groupSizes.push(4, 3, 3, 3), (remaining = 0);
+        else if (remaining === 10) groupSizes.push(4, 3, 3), (remaining = 0);
+        else if (remaining === 7) groupSizes.push(4, 3), (remaining = 0);
+        else if (remaining === 5) groupSizes.push(3, 2), (remaining = 0);
+        else if (remaining >= 4) groupSizes.push(4), (remaining -= 4);
+        else groupSizes.push(remaining), (remaining = 0);
+      }
+
+      const groups = [];
+      let index = 0;
+      for (let size of groupSizes) {
+        groups.push(names.slice(index, index + size).map((n) => n + "ちゃん"));
+        index += size;
+      }
+
+      const groupLabels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      const now = new Date();
+      const dateStr =
+        now.toLocaleDateString("ja-JP", {
+          year: "2-digit",
+          month: "2-digit",
+          day: "2-digit",
+        }) +
+        " " +
+        now.toTimeString().slice(0, 5);
+
+      let output = "☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆\n";
+      output += `${dateStr} 時点      左の人から貼っていこー！\n\n`;
+
+      groups.forEach((group, i) => {
+        const label = `ｸﾞﾙｰﾌﾟ${groupLabels[i]}（${group.length}人）：`;
+        output += `${label}${group.join("、")}\n-------------------------------\n`;
+      });
+
+      output += "\n☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆";
+
+      const resultDiv = document.getElementById("result");
+      // 【重要】結果欄は毎回クリアしてから新しい結果だけ表示する！
+      resultDiv.innerText = output;
+
+      // ログ保存（将来の未重複グループ最適化用）
+      for (let group of groups) {
+        for (let member of group) {
+          if (!historyLog[member]) historyLog[member] = new Set();
+          group.forEach((other) => {
+            if (other !== member) historyLog[member].add(other);
+          });
+        }
+      }
+    }
+
+    function resetResult() {
+      document.getElementById("result").innerText = "";
+      historyLog = {};
+    }
+
+    function copyResult() {
+      const text = document.getElementById("result").innerText;
+      navigator.clipboard.writeText(text).then(
+        () => alert("結果をコピーしました！"),
+        (err) => alert("コピーに失敗しました: " + err)
+      );
+    }
+  </script>
+</body>
+</html>
